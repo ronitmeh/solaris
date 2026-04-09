@@ -311,13 +311,15 @@ export default function HomePage() {
 
         const vector = await response.json();
 
+        console.log('Received embedding vector:', vector)
 
 
-      const { data, error } = await supabase.rpc('match_movies', {
+
+        const { data, error } = await supabase.rpc('match_movies', {
         query_embedding: vector,
         match_threshold: 0.1,
         match_count: 8
-      })
+        })
 
       if (error) throw error
 
