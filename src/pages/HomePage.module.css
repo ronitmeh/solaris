@@ -1586,70 +1586,101 @@
 
 @media (max-width: 768px) {
   .main {
-    padding-bottom: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 8px 74px;
+    overflow: hidden;
+  }
+
+  .graphWrap {
+    position: relative;
+    inset: auto;
+    flex: 1 1 auto;
+    min-height: 40svh;
+    border-radius: 12px;
+    overflow: hidden;
   }
 
   .detailPanel {
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    width: auto;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
     bottom: auto;
-    height: min(42vh, 360px);
+    width: 100%;
+    height: auto;
+    max-height: min(24svh, 200px);
+    z-index: 110;
   }
 
   .detailPanelExplorerOpen {
-    width: auto;
+    width: 100%;
     bottom: auto;
-    height: min(38vh, 320px);
+    height: auto;
+    max-height: min(22svh, 176px);
   }
 
   .descriptionPanel {
-    left: 8px;
-    right: 8px;
-    width: auto;
+    position: relative;
+    left: auto;
+    right: auto;
     top: auto;
-    bottom: 60px;
-    height: min(34vh, 300px);
-    padding: 12px;
-    gap: 8px;
+    bottom: auto;
+    width: 100%;
+    height: auto;
+    max-height: min(24svh, 200px);
+    padding: 10px;
+    gap: 6px;
+    z-index: 110;
+  }
+
+  .panelContent {
+    padding: 9px;
+    gap: 6px;
   }
 
   .clusterDropdownMenu {
     width: min(300px, calc(100vw - 24px));
-    max-height: min(44vh, 320px);
+    max-height: min(34vh, 240px);
     overflow-y: auto;
   }
 
   .searchDropdown {
-    max-height: min(36vh, 220px);
+    max-height: min(26vh, 170px);
   }
 
   .clusterInsightModal {
+    position: fixed;
     left: 8px;
     right: 8px;
     transform: none;
     width: auto;
     min-width: 0;
-    bottom: 112px;
-    max-height: min(23vh, 170px);
+    bottom: 62px;
+    max-height: min(20svh, 156px);
     grid-template-columns: 1fr auto;
-    padding: 7px;
+    padding: 6px;
+    z-index: 1320;
   }
 
   .clusterInsightMovieGrid {
-    grid-template-columns: repeat(2, 46px);
-    gap: 6px;
+    grid-template-columns: repeat(2, 42px);
+    gap: 4px;
   }
 
   .clusterInsightPoster,
   .clusterInsightPosterFallback {
-    width: 46px;
-    height: 64px;
+    width: 42px;
+    height: 58px;
   }
 
   .floatingControls {
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 8px;
+    z-index: 1330;
   }
 
   .floatingHistoryBtn {
@@ -1665,18 +1696,32 @@
   }
 
   .decadeExplorerOverlay {
+    position: fixed;
     left: 8px;
-    width: min(420px, calc(100vw - 16px));
+    right: 8px;
+    bottom: 116px;
+    width: auto;
+    max-width: none;
+    z-index: 1340;
+  }
+
+  .decadeExplorerModal {
+    width: 100%;
+    max-height: min(48svh, 420px);
   }
 }
 
 @media (max-width: 560px) {
   .detailPanel {
-    height: min(40vh, 320px);
+    max-height: min(21svh, 168px);
   }
 
   .descriptionPanel {
-    height: min(32vh, 260px);
+    max-height: min(21svh, 168px);
+  }
+
+  .graphWrap {
+    min-height: 34svh;
   }
 
   .clusterDropdownBtn {
@@ -1687,8 +1732,8 @@
   }
 
   .clusterInsightModal {
-    bottom: 102px;
-    max-height: min(22vh, 156px);
+    bottom: 58px;
+    max-height: min(17svh, 128px);
     grid-template-columns: 1fr;
     gap: 4px;
   }
@@ -1698,8 +1743,8 @@
   }
 
   .clusterInsightSummary {
-    font-size: 0.62rem;
-    line-height: 1.3;
+    font-size: 0.58rem;
+    line-height: 1.25;
   }
 
   .clusterInsightGenres {
@@ -1707,14 +1752,14 @@
   }
 
   .clusterInsightMovieGrid {
-    grid-template-columns: repeat(2, 42px);
+    grid-template-columns: repeat(2, 38px);
     justify-content: start;
   }
 
   .clusterInsightPoster,
   .clusterInsightPosterFallback {
-    width: 42px;
-    height: 58px;
+    width: 38px;
+    height: 52px;
   }
 
   .searchInlineRow {
@@ -1731,6 +1776,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .decadeExplorerOverlay {
+    bottom: 108px;
+  }
+
+  .decadeExplorerModal {
+    max-height: min(45svh, 360px);
   }
 }
 

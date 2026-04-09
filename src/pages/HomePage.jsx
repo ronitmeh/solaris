@@ -170,6 +170,7 @@ export default function HomePage() {
   const [clusterMenuOpen, setClusterMenuOpen] = useState(false)
   const [clusterInsightOpen, setClusterInsightOpen] = useState(false)
   const [clusterInsightCluster, setClusterInsightCluster] = useState(null)
+  const [clusterInsightFallbacks, setClusterInsightFallbacks] = useState({})
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0)
   const [decadeExplorerOpen, setDecadeExplorerOpen] = useState(false)
@@ -433,13 +434,18 @@ export default function HomePage() {
 
       const metadata = CLUSTER_METADATA_BY_ID[cluster]
 
-      const highlightMovies = [...value.nodes]
+      const fitRankedNodes = [...value.nodes]
         .sort((a, b) => {
           const aScore = scoreNodeForClusterFit(a, metadata)
           const bScore = scoreNodeForClusterFit(b, metadata)
           if (bScore !== aScore) return bScore - aScore
           return Number(b.popularity || 0) - Number(a.popularity || 0)
         })
+
+      const posterRankedNodes = fitRankedNodes.filter((node) => Boolean(node.poster_path))
+      const fallbackRankedNodes = fitRankedNodes.filter((node) => !node.poster_path)
+
+      const highlightMovies = [...posterRankedNodes, ...fallbackRankedNodes]
         .slice(0, 2)
         .map((node) => ({
           id: String(node.id),
@@ -499,6 +505,75 @@ export default function HomePage() {
     return clusterProfiles.get(Number(clusterInsightCluster)) || null
   }, [clusterInsightCluster, clusterInsightOpen, clusterProfiles])
 
+  const selectedClusterInsightMovies = useMemo(() => {
+    if (!selectedClusterInsightProfile) return []
+
+    const primary = (selectedClusterInsightProfile.highlightMovies || []).filter((movie) => Boolean(movie?.poster_path))
+    const fallback = clusterInsightFallbacks[String(selectedClusterInsightProfile.cluster)] || []
+
+    const merged = [...primary]
+    const seen = new Set(primary.map((movie) => String(movie.id)))
+
+    for (const movie of fallback) {
+      const id = String(movie.id)
+      if (seen.has(id)) continue
+      if (!movie.poster_path) continue
+      merged.push(movie)
+      seen.add(id)
+      if (merged.length >= 2) break
+    }
+
+    return merged.slice(0, 2)
+  }, [clusterInsightFallbacks, selectedClusterInsightProfile])
+
+  const ensureClusterPosterFallbacks = async (cluster, existingMovies = []) => {
+    const key = String(cluster)
+    if (clusterInsightFallbacks[key]?.length > 0) return
+
+    const existingIds = new Set(existingMovies.map((movie) => String(movie.id)))
+
+    try {
+      const { data, error } = await supabase
+        .from('movie_galaxy')
+        .select('id, title, release_date, poster_path, popularity, vote_average')
+        .eq('cluster', cluster)
+        .not('poster_path', 'is', null)
+        .order('popularity', { ascending: false })
+        .order('vote_average', { ascending: false })
+        .limit(8)
+
+      if (error) throw error
+
+      const extras = (data || [])
+        .map((movie) => ({
+          id: String(movie.id),
+          title: movie.title || 'Untitled',
+          poster_path: movie.poster_path || null,
+          release_date: movie.release_date || null
+        }))
+        .filter((movie) => movie.poster_path && !existingIds.has(String(movie.id)))
+
+      if (extras.length > 0) {
+        setClusterInsightFallbacks((prev) => ({
+          ...prev,
+          [key]: extras
+        }))
+      }
+    } catch (error) {
+      console.warn('Failed to fetch fallback cluster posters', error)
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedClusterInsightProfile) return
+    if (selectedClusterInsightMovies.length >= 2) return
+
+    ensureClusterPosterFallbacks(
+      selectedClusterInsightProfile.cluster,
+      selectedClusterInsightProfile.highlightMovies || []
+    )
+  }, [selectedClusterInsightMovies.length, selectedClusterInsightProfile])
+
   const handleClusterLegendSelect = (cluster) => {
     if (cluster === null || cluster === undefined) {
       setActiveCluster(null)
@@ -513,6 +588,12 @@ export default function HomePage() {
     setClusterMenuOpen(false)
     setClusterInsightCluster(normalizedCluster)
     setClusterInsightOpen(true)
+
+    const profile = clusterProfiles.get(normalizedCluster)
+    const posterCount = (profile?.highlightMovies || []).filter((movie) => Boolean(movie?.poster_path)).length
+    if (posterCount < 2) {
+      ensureClusterPosterFallbacks(normalizedCluster, profile?.highlightMovies || [])
+    }
   }
 
   // 3. SEARCH LOGIC
@@ -1160,7 +1241,7 @@ export default function HomePage() {
           </div>
 
           <div className={styles.clusterInsightMovieGrid}>
-            {selectedClusterInsightProfile.highlightMovies.map((movie) => (
+            {selectedClusterInsightMovies.map((movie) => (
               <button
                 type="button"
                 key={`${selectedClusterInsightProfile.cluster}-${movie.id}`}

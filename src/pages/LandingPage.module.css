@@ -159,6 +159,7 @@
 }
 
 .sphereWrap {
+  --orbit-radius: 156px;
   width: min(360px, 72vw);
   aspect-ratio: 1 / 1;
   position: relative;
@@ -235,10 +236,10 @@
 
 @keyframes posterOrbit {
   from {
-    transform: translate(-50%, -50%) rotate(var(--phase)) translateX(156px) rotate(calc(var(--phase) * -1));
+    transform: translate(-50%, -50%) rotate(var(--phase)) translateX(var(--orbit-radius, 156px)) rotate(calc(var(--phase) * -1));
   }
   to {
-    transform: translate(-50%, -50%) rotate(calc(var(--phase) + 360deg)) translateX(156px) rotate(calc((var(--phase) + 360deg) * -1));
+    transform: translate(-50%, -50%) rotate(calc(var(--phase) + 360deg)) translateX(var(--orbit-radius, 156px)) rotate(calc((var(--phase) + 360deg) * -1));
   }
 }
 
@@ -311,7 +312,7 @@
     min-height: min(680px, 100%);
     grid-template-columns: 1fr;
     text-align: center;
-    gap: 1.5rem;
+    gap: 2rem;
     padding: 2rem 1.2rem 2.5rem;
   }
 
@@ -329,15 +330,17 @@
 
   .visualCol {
     order: -1;
+    margin-bottom: 0.4rem;
   }
 
   .sphereWrap {
-    width: min(280px, 70vw);
+    --orbit-radius: 114px;
+    width: min(236px, 62vw);
   }
 
   .posterCard {
-    width: 60px;
-    height: 88px;
+    width: 46px;
+    height: 68px;
     padding: 0;
   }
 
@@ -348,5 +351,37 @@
   .orbitLayer .posterOrbitItem,
   .posterCard {
     animation-duration: 12s;
+  }
+
+  .description {
+    font-size: 0.94rem;
+    line-height: 1.6;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero {
+    gap: 1.4rem;
+    padding: 1.5rem 0.95rem 2rem;
+  }
+
+  .sphereWrap {
+    --orbit-radius: 86px;
+    width: min(188px, 56vw);
+  }
+
+  .posterCard {
+    width: 38px;
+    height: 56px;
+  }
+
+  .description {
+    max-width: 46ch;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .featuresSection {
+    padding: 0 0.95rem 1.8rem;
   }
 }
