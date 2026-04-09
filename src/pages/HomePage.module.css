@@ -1037,6 +1037,214 @@
   font-weight: 700;
 }
 
+.floatingTourBtn {
+  pointer-events: auto;
+  position: absolute;
+  left: 164px;
+  bottom: 0;
+  border: 1px solid rgba(181, 206, 255, 0.35);
+  background: rgba(10, 17, 34, 0.84);
+  color: #ecf3ff;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.floatingTourBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tourCard {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(620px, calc(100% - 300px));
+  border-radius: 12px;
+  border: 1px solid rgba(181, 206, 255, 0.3);
+  background: rgba(9, 15, 30, 0.9);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.36);
+  padding: 12px 14px;
+  z-index: 1260;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tourEyebrow {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(182, 205, 246, 0.86);
+}
+
+.tourTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.tourMeta {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(194, 212, 247, 0.9);
+}
+
+.tourSummary {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(223, 233, 251, 0.92);
+}
+
+.tourHighlights {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(201, 217, 248, 0.92);
+}
+
+.tourActions {
+  display: flex;
+  gap: 8px;
+}
+
+.tourActions .utilityBtn {
+  flex: 1;
+  text-align: center;
+}
+
+.clusterInsightModal {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 14px;
+  width: min(720px, calc(100% - 680px));
+  min-width: 460px;
+  max-height: 156px;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(181, 206, 255, 0.3);
+  background: rgba(9, 15, 30, 0.92);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
+  padding: 8px;
+  z-index: 1260;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+}
+
+.clusterInsightHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.clusterInsightEyebrow {
+  margin: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(182, 205, 246, 0.86);
+}
+
+.clusterInsightTitle {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  color: #ffffff;
+}
+
+.clusterInsightSummary {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: rgba(223, 233, 251, 0.92);
+}
+
+.clusterInsightCoreGenre {
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(195, 214, 248, 0.9);
+}
+
+.clusterInsightGenres {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.clusterInsightBody {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.clusterInsightMovieGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 56px);
+  gap: 8px;
+  justify-content: end;
+  align-content: start;
+  align-self: stretch;
+}
+
+.clusterInsightMovieCard {
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f5f9ff;
+  text-align: left;
+  min-height: 0;
+}
+
+.clusterInsightMovieCard:hover {
+  background: transparent;
+}
+
+.clusterInsightPoster,
+.clusterInsightPosterFallback {
+  width: 56px;
+  height: 78px;
+  border-radius: 4px;
+}
+
+.clusterInsightPoster {
+  object-fit: cover;
+}
+
+.clusterInsightPosterFallback {
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(186, 206, 240, 0.84);
+}
+
+.clusterInsightMovieTitle {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: #f0f6ff;
+  overflow-wrap: anywhere;
+}
+
 .floatingHistoryBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1297,6 +1505,42 @@
     bottom: 0;
   }
 
+  .floatingTourBtn {
+    left: 14px;
+    bottom: 52px;
+  }
+
+  .tourCard {
+    width: min(620px, calc(100% - 24px));
+    bottom: 110px;
+  }
+
+  .clusterInsightModal {
+    left: 10px;
+    right: 10px;
+    transform: none;
+    bottom: 66px;
+    width: auto;
+    min-width: 0;
+    max-height: 186px;
+    grid-template-columns: 1fr;
+  }
+
+  .clusterInsightMovieGrid {
+    grid-template-columns: repeat(2, 52px);
+    justify-content: start;
+  }
+
+  .clusterInsightPoster,
+  .clusterInsightPosterFallback {
+    width: 52px;
+    height: 72px;
+  }
+
+  .clusterInsightBody {
+    gap: 6px;
+  }
+
   .tutorialFab {
     bottom: 0;
   }
@@ -1321,6 +1565,172 @@
   .decadeExplorerModal {
     width: 100%;
     max-height: min(52vh, 480px);
+  }
+}
+
+@media (max-width: 1200px) {
+  .detailPanel,
+  .descriptionPanel {
+    width: 248px;
+  }
+
+  .clusterInsightModal {
+    width: clamp(360px, 52vw, 620px);
+    min-width: 0;
+  }
+
+  .historyBottomBar {
+    width: min(520px, calc(100% - 190px));
+  }
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding-bottom: 6px;
+  }
+
+  .detailPanel {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: auto;
+    height: min(42vh, 360px);
+  }
+
+  .detailPanelExplorerOpen {
+    width: auto;
+    bottom: auto;
+    height: min(38vh, 320px);
+  }
+
+  .descriptionPanel {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    top: auto;
+    bottom: 60px;
+    height: min(34vh, 300px);
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .clusterDropdownMenu {
+    width: min(300px, calc(100vw - 24px));
+    max-height: min(44vh, 320px);
+    overflow-y: auto;
+  }
+
+  .searchDropdown {
+    max-height: min(36vh, 220px);
+  }
+
+  .clusterInsightModal {
+    left: 8px;
+    right: 8px;
+    transform: none;
+    width: auto;
+    min-width: 0;
+    bottom: 112px;
+    max-height: min(23vh, 170px);
+    grid-template-columns: 1fr auto;
+    padding: 7px;
+  }
+
+  .clusterInsightMovieGrid {
+    grid-template-columns: repeat(2, 46px);
+    gap: 6px;
+  }
+
+  .clusterInsightPoster,
+  .clusterInsightPosterFallback {
+    width: 46px;
+    height: 64px;
+  }
+
+  .floatingControls {
+    bottom: 8px;
+  }
+
+  .floatingHistoryBtn {
+    left: 8px;
+    font-size: 0.67rem;
+    padding: 8px 10px;
+  }
+
+  .tutorialFab {
+    right: 8px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .decadeExplorerOverlay {
+    left: 8px;
+    width: min(420px, calc(100vw - 16px));
+  }
+}
+
+@media (max-width: 560px) {
+  .detailPanel {
+    height: min(40vh, 320px);
+  }
+
+  .descriptionPanel {
+    height: min(32vh, 260px);
+  }
+
+  .clusterDropdownBtn {
+    width: 100%;
+    text-align: left;
+    font-size: 0.72rem;
+    padding: 7px 10px;
+  }
+
+  .clusterInsightModal {
+    bottom: 102px;
+    max-height: min(22vh, 156px);
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .clusterInsightBody {
+    gap: 4px;
+  }
+
+  .clusterInsightSummary {
+    font-size: 0.62rem;
+    line-height: 1.3;
+  }
+
+  .clusterInsightGenres {
+    display: none;
+  }
+
+  .clusterInsightMovieGrid {
+    grid-template-columns: repeat(2, 42px);
+    justify-content: start;
+  }
+
+  .clusterInsightPoster,
+  .clusterInsightPosterFallback {
+    width: 42px;
+    height: 58px;
+  }
+
+  .searchInlineRow {
+    gap: 6px;
+  }
+
+  .searchSubmitBtn {
+    padding: 7px 8px;
+    font-size: 0.7rem;
+  }
+
+  .floatingHistoryBtn {
+    max-width: calc(100vw - 66px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

@@ -50,6 +50,111 @@ const getDecadeExplorerSummary = (decade) => {
   return summaries[decade] || 'This decade helped define the language of cinema through the films, styles, and trends that emerged within it.'
 }
 
+const formatNaturalList = (items) => {
+  const filtered = (items || []).map((item) => String(item).trim()).filter(Boolean)
+  if (filtered.length === 0) return ''
+  if (filtered.length === 1) return filtered[0]
+  if (filtered.length === 2) return `${filtered[0]} and ${filtered[1]}`
+  return `${filtered.slice(0, -1).join(', ')}, and ${filtered[filtered.length - 1]}`
+}
+
+const buildClusterNarrative = ({ cluster, count, genres, topTitles, displayName }) => {
+  const genreText = genres.length > 0 ? formatNaturalList(genres) : 'a blend of tones'
+  const titleText = topTitles.length > 0 ? formatNaturalList(topTitles.slice(0, 3)) : 'a wide spectrum of films'
+  const nameText = displayName || `This corner of Cluster ${cluster}`
+  return `${nameText} leans into ${genreText}, with ${count} films orbiting around stories like ${titleText}.`
+}
+
+const CLUSTER_METADATA_BY_ID = {
+  11: {
+    displayName: "Noir's Horizon",
+    coreGenre: 'Psychological Thriller',
+    description: 'Dive into the shadows. This sector is home to obsessive investigators, cold-blooded mysteries, and the dark, atmospheric tension of modern noir.',
+    keywords: ['thriller', 'mystery', 'crime', 'detective', 'noir', 'psychological']
+  },
+  10: {
+    displayName: 'Comedy Aurora',
+    coreGenre: 'Comedy & Uplift',
+    description: 'A high-energy hub where laughter takes center stage. From slapstick underdogs to witty satires, this cluster is defined by its bright, feel-good spirit.',
+    keywords: ['comedy', 'funny', 'satire', 'feel-good', 'romp', 'uplift']
+  },
+  9: {
+    displayName: 'Cosmic Frontier',
+    coreGenre: 'Sci-Fi & Space',
+    description: 'The heart of the final frontier. Explore the intersection of high-concept technology, interstellar travel, and the vast mysteries of deep space.',
+    keywords: ['sci-fi', 'space', 'alien', 'future', 'interstellar', 'cosmic']
+  },
+  8: {
+    displayName: 'Mythic Nebula',
+    coreGenre: 'Fantasy & Magic',
+    description: 'A realm of magic and timeless wonders. This sector gathers the greatest tales of swords, sorcery, and mythical quests across ancient worlds.',
+    keywords: ['fantasy', 'magic', 'myth', 'sword', 'sorcery', 'quest']
+  },
+  7: {
+    displayName: 'Echoes of Home',
+    coreGenre: 'Emotional Drama',
+    description: 'A grounded sector focused on the human experience. These stories explore the ties of family, the weight of nostalgia, and the intimate moments that define us.',
+    keywords: ['drama', 'family', 'life', 'home', 'heart', 'emotional']
+  },
+  6: {
+    displayName: 'The Animated Menagerie',
+    coreGenre: 'Animation & Family',
+    description: 'A playful quadrant where imagination runs wild. Home to talking creatures, colorful adventures, and the timeless magic of animated storytelling.',
+    keywords: ['animation', 'family', 'kids', 'adventure', 'animal', 'animated']
+  },
+  5: {
+    displayName: 'Neon Heist Syndicate',
+    coreGenre: 'Urban Action',
+    description: 'High-octane energy meets city grit. This sector is fueled by stylish heists, adrenaline-pumping chases, and the neon-soaked aesthetics of urban crime.',
+    keywords: ['action', 'heist', 'crime', 'city', 'chase', 'gang']
+  },
+  4: {
+    displayName: 'Cipher Sector',
+    coreGenre: 'War & Espionage',
+    description: 'A tactical zone of high-stakes conflict. This cluster maps the clandestine world of international spies, government secrets, and the reality of the battlefield.',
+    keywords: ['war', 'spy', 'espionage', 'military', 'battle', 'agent']
+  },
+  3: {
+    displayName: "Affection's Orbit",
+    coreGenre: 'Rom-Com & Music',
+    description: 'The rhythmic heart of the galaxy. This sector explores the chemistry of relationships through the lens of romance and the pulse of music-driven dramas.',
+    keywords: ['romance', 'love', 'music', 'relationship', 'rom-com', 'musical']
+  },
+  2: {
+    displayName: 'Vanguard Multiverse',
+    coreGenre: 'Superheroes',
+    description: 'Where icons collide. This high-density sector houses the larger-than-life heroes and massive spectacles that define the modern blockbuster era.',
+    keywords: ['superhero', 'hero', 'comic', 'avenger', 'marvel', 'dc']
+  },
+  1: {
+    displayName: 'Terror Rift',
+    coreGenre: 'Horror',
+    description: 'A tear in the cosmic fabric where nightmares dwell. Enter a space of psychological dread, gothic hauntings, and visceral supernatural thrills.',
+    keywords: ['horror', 'ghost', 'haunted', 'nightmare', 'supernatural', 'dread']
+  },
+  0: {
+    displayName: 'Combat Plains',
+    coreGenre: 'Westerns & Classics',
+    description: 'The rugged roots of action. From the dusty trails of the Wild West to the precision of hand-to-hand combat, this sector honors the "lone hero" archetype.',
+    keywords: ['western', 'classic', 'gunslinger', 'cowboy', 'martial', 'combat']
+  }
+}
+
+const CLUSTER_NAME_BY_ID = {
+  11: CLUSTER_METADATA_BY_ID[11].displayName,
+  10: CLUSTER_METADATA_BY_ID[10].displayName,
+  9: CLUSTER_METADATA_BY_ID[9].displayName,
+  8: CLUSTER_METADATA_BY_ID[8].displayName,
+  7: CLUSTER_METADATA_BY_ID[7].displayName,
+  6: CLUSTER_METADATA_BY_ID[6].displayName,
+  5: CLUSTER_METADATA_BY_ID[5].displayName,
+  4: CLUSTER_METADATA_BY_ID[4].displayName,
+  3: CLUSTER_METADATA_BY_ID[3].displayName,
+  2: CLUSTER_METADATA_BY_ID[2].displayName,
+  1: CLUSTER_METADATA_BY_ID[1].displayName,
+  0: CLUSTER_METADATA_BY_ID[0].displayName
+}
+
 export default function HomePage() {
   const graphRef = useRef(null)
   const hasCompletedInitialRenderRef = useRef(false)
@@ -63,6 +168,8 @@ export default function HomePage() {
   const [descriptionLoading, setDescriptionLoading] = useState(false)
   const [descriptionError, setDescriptionError] = useState('')
   const [clusterMenuOpen, setClusterMenuOpen] = useState(false)
+  const [clusterInsightOpen, setClusterInsightOpen] = useState(false)
+  const [clusterInsightCluster, setClusterInsightCluster] = useState(null)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0)
   const [decadeExplorerOpen, setDecadeExplorerOpen] = useState(false)
@@ -106,6 +213,27 @@ export default function HomePage() {
         .filter(Boolean)
     }
     return []
+  }
+
+  const scoreNodeForClusterFit = (node, clusterMetadata) => {
+    const metadata = clusterMetadata || {}
+    const keywords = metadata.keywords || []
+    const searchable = `${node.title || ''} ${node.overview || ''} ${node.tagline || ''}`.toLowerCase()
+    const nodeGenres = parseGenres(node.genres).map((genre) => genre.toLowerCase())
+
+    let keywordScore = 0
+    for (const keyword of keywords) {
+      const term = String(keyword || '').toLowerCase().trim()
+      if (!term) continue
+      if (searchable.includes(term)) keywordScore += 4
+      if (nodeGenres.some((genre) => genre.includes(term) || term.includes(genre))) keywordScore += 5
+    }
+
+    const posterBonus = node.poster_path ? 10 : 0
+    const voteScore = Number(node.vote_average || 0) * 0.45
+    const popularityScore = Math.log10(Number(node.popularity || 0) + 1)
+
+    return keywordScore + posterBonus + voteScore + popularityScore
   }
 
   // 1. DATA FETCHING
@@ -179,22 +307,6 @@ export default function HomePage() {
     }
     return [...unique.values()].sort((a, b) => b.weight - a.weight).slice(0, 6)
   }, [selectedNode, adjacency, nodeById])
-
-  const clusterLegend = useMemo(() => {
-    const counts = new Map()
-    for (const node of graphData.nodes) {
-      const key = node.cluster ?? 0
-      counts.set(key, (counts.get(key) || 0) + 1)
-    }
-
-    return [...counts.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([cluster, count]) => ({
-        cluster,
-        count,
-        color: getClusterColor(cluster)
-      }))
-  }, [graphData.nodes, clusterColors])
 
   const historyBounds = useMemo(() => {
     const years = graphData.nodes
@@ -278,6 +390,131 @@ export default function HomePage() {
     return isNodeReleasedByHistory(node)
   }
 
+  const clusterProfiles = useMemo(() => {
+    const buckets = new Map()
+
+    for (const node of graphData.nodes) {
+      const cluster = Number(node.cluster ?? 0)
+      if (!buckets.has(cluster)) {
+        buckets.set(cluster, {
+          cluster,
+          count: 0,
+          nodes: [],
+          genreCounts: new Map()
+        })
+      }
+
+      const bucket = buckets.get(cluster)
+      bucket.count += 1
+      bucket.nodes.push(node)
+
+      for (const genre of parseGenres(node.genres)) {
+        bucket.genreCounts.set(genre, (bucket.genreCounts.get(genre) || 0) + 1)
+      }
+    }
+
+    return new Map([...buckets.entries()].map(([cluster, value]) => {
+      const topGenres = [...value.genreCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([genre]) => genre)
+
+      const rankedNodes = [...value.nodes]
+        .sort((a, b) => {
+          const voteDelta = Number(b.vote_average || 0) - Number(a.vote_average || 0)
+          if (voteDelta !== 0) return voteDelta
+          return Number(b.popularity || 0) - Number(a.popularity || 0)
+        })
+
+      const topTitles = rankedNodes
+        .slice(0, 5)
+        .map((node) => node.title)
+        .filter(Boolean)
+
+      const metadata = CLUSTER_METADATA_BY_ID[cluster]
+
+      const highlightMovies = [...value.nodes]
+        .sort((a, b) => {
+          const aScore = scoreNodeForClusterFit(a, metadata)
+          const bScore = scoreNodeForClusterFit(b, metadata)
+          if (bScore !== aScore) return bScore - aScore
+          return Number(b.popularity || 0) - Number(a.popularity || 0)
+        })
+        .slice(0, 2)
+        .map((node) => ({
+          id: String(node.id),
+          title: node.title || 'Untitled',
+          poster_path: node.poster_path || null,
+          release_date: node.release_date || null
+        }))
+
+      const displayName = metadata?.displayName || CLUSTER_NAME_BY_ID[cluster] || `Cluster ${cluster}`
+      const coreGenre = metadata?.coreGenre || (topGenres.length > 0 ? formatNaturalList(topGenres.slice(0, 2)) : 'Mixed Genres')
+      const summary = metadata?.description || buildClusterNarrative({
+        cluster,
+        count: value.count,
+        genres: topGenres,
+        topTitles,
+        displayName
+      })
+
+      return [cluster, {
+        cluster,
+        count: value.count,
+        topGenres,
+        topTitles,
+        highlightMovies,
+        displayName,
+        coreGenre,
+        summary
+      }]
+    }))
+  }, [graphData.nodes])
+
+  const clusterLegend = useMemo(() => {
+    const counts = new Map()
+    for (const node of graphData.nodes) {
+      const key = node.cluster ?? 0
+      counts.set(key, (counts.get(key) || 0) + 1)
+    }
+
+    return [...counts.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([cluster, count]) => ({
+        cluster,
+        count,
+        name: clusterProfiles.get(Number(cluster))?.displayName || `Cluster ${cluster}`,
+        color: getClusterColor(cluster)
+      }))
+  }, [graphData.nodes, clusterProfiles, clusterColors])
+
+  const getClusterDisplayLabel = (cluster) => {
+    const profile = clusterProfiles.get(Number(cluster))
+    if (!profile) return `Cluster ${cluster}`
+    return `Cluster ${cluster} · ${profile.displayName}`
+  }
+
+  const selectedClusterInsightProfile = useMemo(() => {
+    if (!clusterInsightOpen || clusterInsightCluster === null) return null
+    return clusterProfiles.get(Number(clusterInsightCluster)) || null
+  }, [clusterInsightCluster, clusterInsightOpen, clusterProfiles])
+
+  const handleClusterLegendSelect = (cluster) => {
+    if (cluster === null || cluster === undefined) {
+      setActiveCluster(null)
+      setClusterMenuOpen(false)
+      setClusterInsightOpen(false)
+      setClusterInsightCluster(null)
+      return
+    }
+
+    const normalizedCluster = Number(cluster)
+    setActiveCluster(normalizedCluster)
+    setClusterMenuOpen(false)
+    setClusterInsightCluster(normalizedCluster)
+    setClusterInsightOpen(true)
+  }
+
   // 3. SEARCH LOGIC
   useEffect(() => {
     if (searchQuery.length < 2) return setSearchResults([])
@@ -295,31 +532,9 @@ export default function HomePage() {
     try {
       setDescriptionLoading(true)
       setDescriptionError('')
-      
-      // 1. Get embedding from your proxy
-        const response = await fetch('/api/get_embedding', {
-            method: 'POST',
-            body: JSON.stringify({ text: descriptionQuery })
-        });
-        
-        // This is where the "Unexpected token <" fix happens:
-        // Check if the response is actually JSON before parsing
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            throw new Error("Oops! The server sent back HTML instead of data. Check your Vercel logs.");
-        }
-
-        const vector = await response.json();
-
-        console.log('Received embedding vector:', vector)
-
-
-
-        const { data, error } = await supabase.rpc('match_movies', {
-        query_embedding: vector,
-        match_threshold: 0.1,
-        match_count: 8
-        })
+      const { data, error } = await supabase.rpc('search_movies_by_vibe', {
+        query_text: query
+      })
 
       if (error) throw error
 
@@ -657,17 +872,14 @@ export default function HomePage() {
                   className={styles.clusterDropdownBtn}
                   onClick={() => setClusterMenuOpen((open) => !open)}
                 >
-                  {activeCluster === null ? 'All Clusters' : `Cluster ${activeCluster}`}
+                  {activeCluster === null ? 'All Clusters' : getClusterDisplayLabel(activeCluster)}
                 </button>
                 {clusterMenuOpen && (
                   <div className={styles.clusterDropdownMenu}>
                     <button
                       type="button"
                       className={`${styles.clusterDropdownItem} ${activeCluster === null ? styles.activeClusterDropdownItem : ''}`}
-                      onClick={() => {
-                        setActiveCluster(null)
-                        setClusterMenuOpen(false)
-                      }}
+                      onClick={() => handleClusterLegendSelect(null)}
                     >
                       <span className={styles.colorDot} style={{ color: '#e2e8f0', background: '#e2e8f0' }} />
                       <span>All Clusters</span>
@@ -678,13 +890,10 @@ export default function HomePage() {
                         type="button"
                         key={item.cluster}
                         className={`${styles.clusterDropdownItem} ${activeCluster === item.cluster ? styles.activeClusterDropdownItem : ''}`}
-                        onClick={() => {
-                          setActiveCluster(item.cluster)
-                          setClusterMenuOpen(false)
-                        }}
+                        onClick={() => handleClusterLegendSelect(item.cluster)}
                       >
                         <span className={styles.colorDot} style={{ color: item.color, background: item.color }} />
-                        <span>Cluster {item.cluster}</span>
+                        <span>{getClusterDisplayLabel(item.cluster)}</span>
                         <span className={styles.legendCount}>{item.count}</span>
                       </button>
                     ))}
@@ -711,7 +920,9 @@ export default function HomePage() {
                   {selectedNode.poster_path && <img src={`https://image.tmdb.org/t/p/w200${selectedNode.poster_path}`} className={styles.posterSmall} alt="" />}
                   <div className={styles.headerInfo}>
                     <h2 className={styles.panelTitle}>{selectedNode.title}</h2>
-                    <div className={styles.clusterPill} style={{ background: getClusterColor(selectedNode.cluster) }}>Sector {selectedNode.cluster}</div>
+                    <div className={styles.clusterPill} style={{ background: getClusterColor(selectedNode.cluster) }}>
+                      {clusterProfiles.get(Number(selectedNode.cluster))?.displayName || `Sector ${selectedNode.cluster}`}
+                    </div>
                   </div>
                 </header>
                 <p className={styles.overview}>{selectedNode.overview}</p>
@@ -913,6 +1124,66 @@ export default function HomePage() {
           ?
         </button>
       </div>
+
+      {selectedClusterInsightProfile && (
+        <section className={styles.clusterInsightModal} role="dialog" aria-label={`${selectedClusterInsightProfile.displayName} details`}>
+          <div className={styles.clusterInsightBody}>
+            <div className={styles.clusterInsightHeader}>
+              <div>
+                <p className={styles.clusterInsightEyebrow}>Cluster Snapshot</p>
+                <h4 className={styles.clusterInsightTitle}>
+                  {selectedClusterInsightProfile.displayName}
+                </h4>
+              </div>
+              <button
+                type="button"
+                className={styles.closeBtn}
+                onClick={() => setClusterInsightOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <p className={styles.clusterInsightSummary}>{selectedClusterInsightProfile.summary}</p>
+
+            <p className={styles.clusterInsightCoreGenre}>
+              {selectedClusterInsightProfile.coreGenre}
+            </p>
+
+            <div className={styles.clusterInsightGenres}>
+              {(selectedClusterInsightProfile.topGenres.length > 0 ? selectedClusterInsightProfile.topGenres : ['Mixed Genres']).map((genre) => (
+                <span key={`${selectedClusterInsightProfile.cluster}-${genre}`} className={styles.genreChip}>
+                  {genre}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.clusterInsightMovieGrid}>
+            {selectedClusterInsightProfile.highlightMovies.map((movie) => (
+              <button
+                type="button"
+                key={`${selectedClusterInsightProfile.cluster}-${movie.id}`}
+                className={styles.clusterInsightMovieCard}
+                onClick={() => {
+                  const graphNode = nodeById.get(String(movie.id))
+                  if (graphNode) focusOnNode(graphNode)
+                }}
+              >
+                {movie.poster_path ? (
+                  <img
+                    src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                    className={styles.clusterInsightPoster}
+                    alt=""
+                  />
+                ) : (
+                  <div className={styles.clusterInsightPosterFallback}>No Poster</div>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {decadeExplorerOpen && (
         <div className={styles.decadeExplorerOverlay} onClick={() => setDecadeExplorerOpen(false)}>
