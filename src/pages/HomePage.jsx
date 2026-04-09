@@ -297,7 +297,7 @@ export default function HomePage() {
       setDescriptionError('')
       
       // 1. Get embedding from your proxy
-        const response = await fetch('/api/get-embedding', {
+        const response = await fetch('/api/get_embedding', {
             method: 'POST',
             body: JSON.stringify({ text: descriptionQuery })
         });
