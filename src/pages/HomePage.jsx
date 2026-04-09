@@ -3,10 +3,7 @@ import * as THREE from 'three'
 import ForceGraph3D from 'react-force-graph-3d'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
 import { supabase } from '../lib/supabase' 
-import { HfInference } from '@huggingface/inference'
 import styles from './HomePage.module.css'
-
-const hf = new HfInference(import.meta.env.VITE_HF_TOKEN)
 
 const tutorialSteps = [
   {
@@ -298,10 +295,24 @@ export default function HomePage() {
     try {
       setDescriptionLoading(true)
       setDescriptionError('')
-      const vector = await hf.featureExtraction({
-        model: 'sentence-transformers/all-MiniLM-L6-v2',
-        inputs: query
-      })
+      
+      // 1. Get embedding from your proxy
+        const response = await fetch('/api/get-embedding', {
+            method: 'POST',
+            body: JSON.stringify({ text: descriptionQuery })
+        });
+        
+        // This is where the "Unexpected token <" fix happens:
+        // Check if the response is actually JSON before parsing
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Oops! The server sent back HTML instead of data. Check your Vercel logs.");
+        }
+
+        const vector = await response.json();
+
+
+
       const { data, error } = await supabase.rpc('match_movies', {
         query_embedding: vector,
         match_threshold: 0.1,
