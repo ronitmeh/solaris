@@ -613,9 +613,31 @@ export default function HomePage() {
     try {
       setDescriptionLoading(true)
       setDescriptionError('')
-      const { data, error } = await supabase.rpc('search_movies_by_vibe', {
-        query_text: query
-      })
+      
+      // 1. Get embedding from your proxy
+        const response = await fetch('/api/get_embedding', {
+            method: 'POST',
+            body: JSON.stringify({ text: descriptionQuery })
+        });
+        
+        // This is where the "Unexpected token <" fix happens:
+        // Check if the response is actually JSON before parsing
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Oops! The server sent back HTML instead of data. Check your Vercel logs.");
+        }
+
+        const vector = await response.json();
+
+        console.log('Received embedding vector:', vector)
+
+
+
+        const { data, error } = await supabase.rpc('match_movies', {
+        query_embedding: vector,
+        match_threshold: 0.1,
+        match_count: 8
+        })
 
       if (error) throw error
 
