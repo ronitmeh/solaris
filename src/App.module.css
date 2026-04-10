@@ -47,6 +47,32 @@
   min-width: 120px;
 }
 
+.rightActions {
+  margin-left: auto;
+  min-width: 120px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.logoutBtn {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(18, 18, 18, 0.72);
+  color: #ececec;
+  border-radius: 999px;
+  padding: 0.45rem 0.74rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.logoutBtn:hover {
+  background: rgba(50, 50, 50, 0.8);
+  transform: translateY(-1px);
+}
+
 .navTab {
   padding: 0.48rem 0.82rem;
   border-radius: 999px;
@@ -101,6 +127,11 @@
 
   .rightSpacer {
     display: none;
+  }
+
+  .rightActions {
+    min-width: auto;
+    margin-left: auto;
   }
 
   .main {

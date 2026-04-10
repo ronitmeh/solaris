@@ -152,6 +152,123 @@
   line-height: 1.7;
 }
 
+.signupCard {
+  margin-top: 1.2rem;
+  max-width: 460px;
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(150deg, rgba(8, 8, 8, 0.86), rgba(18, 18, 18, 0.8));
+  border-radius: 14px;
+  padding: 0.95rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+}
+
+.authModeTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.2rem;
+}
+
+.authModeTab {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f1f1;
+  border-radius: 8px;
+  padding: 0.46rem 0.55rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.authModeTab:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.authModeTabActive {
+  border-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.signupTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+}
+
+.signupSubtext {
+  margin: 0 0 0.15rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: rgba(220, 220, 220, 0.88);
+}
+
+.signupLabel {
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(213, 213, 213, 0.88);
+  font-weight: 700;
+}
+
+.signupInput {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 0.84rem;
+  padding: 0.62rem 0.72rem;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.signupInput:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.signupInput::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.signupError {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: rgba(255, 165, 171, 0.95);
+}
+
+.signupButton {
+  margin-top: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0.65rem 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.signupButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.23);
+  border-color: rgba(255, 255, 255, 0.56);
+}
+
+.signupButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .visualCol {
   display: flex;
   justify-content: center;
@@ -328,6 +445,12 @@
     margin: 0 auto;
   }
 
+  .signupCard {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+  }
+
   .visualCol {
     order: -1;
     margin-bottom: 0.4rem;
@@ -379,6 +502,11 @@
     max-width: 46ch;
     font-size: 0.88rem;
     line-height: 1.55;
+  }
+
+  .signupCard {
+    max-width: 100%;
+    padding: 0.8rem;
   }
 
   .featuresSection {

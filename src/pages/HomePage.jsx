@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import ForceGraph3D from 'react-force-graph-3d'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
 import { supabase } from '../lib/supabase' 
+import { prefetchGalaxyData, prefetchPersonalLists, refreshPersonalLists } from '../lib/dataPrefetch'
 import styles from './HomePage.module.css'
 
 const tutorialSteps = [
@@ -13,6 +14,14 @@ const tutorialSteps = [
   {
     title: 'Search By Title',
     body: 'Use the title search on the left to jump directly to a movie. Selecting a result moves the camera and opens nearby recommendations.'
+  },
+  {
+    title: 'Dashboard Options',
+    body: 'Use the Now Playing and My Watchlist buttons in the left panel to open full-screen dashboard overlays. Now Playing includes posters, overviews, and similar movie poster strips.'
+  },
+  {
+    title: 'Track Movies Fast',
+    body: 'When a movie is focused, use the two icon buttons under Thematic Neighbors: the bookmark icon adds or removes watchlist, and the check icon opens watched details (rating, date, review).'
   },
   {
     title: 'Search By Description',
@@ -155,6 +164,29 @@ const CLUSTER_NAME_BY_ID = {
   0: CLUSTER_METADATA_BY_ID[0].displayName
 }
 
+const WATCHED_FILTER_VALUE = '__watched__'
+const WATCHED_NODE_COLOR = '#34d399'
+
+const LOADING_FACTS = [
+  'Movie posters help identify films instantly, even before the title is read.',
+  'Overview text is often the fastest way to judge tone, genre, and pacing.',
+  'Similarity links work best when theme, genre, and energy overlap together.',
+  'Watchlist and watched history let the galaxy adapt to each viewer over time.'
+]
+
+const getLoadingMessages = () => ([
+  `Building ${CLUSTER_NAME_BY_ID[11]} cluster...`,
+  `Building ${CLUSTER_NAME_BY_ID[9]} cluster...`,
+  `Building ${CLUSTER_NAME_BY_ID[8]} cluster...`,
+  `Building ${CLUSTER_NAME_BY_ID[7]} cluster...`,
+  `Fact: ${LOADING_FACTS[0]}`,
+  `Fact: ${LOADING_FACTS[1]}`,
+  `Fact: ${LOADING_FACTS[2]}`,
+  `Fact: ${LOADING_FACTS[3]}`,
+  'Gathering movie information: posters, overviews, genres, and release dates.',
+  'Aligning similarity signals so related movies stay close in the galaxy.'
+])
+
 export default function HomePage() {
   const graphRef = useRef(null)
   const hasCompletedInitialRenderRef = useRef(false)
@@ -188,10 +220,24 @@ export default function HomePage() {
   const [historyRevealedDecades, setHistoryRevealedDecades] = useState([])
   const [historySpotlightNodeId, setHistorySpotlightNodeId] = useState(null)
   const [historyFeatureCard, setHistoryFeatureCard] = useState(null)
+  const [currentUserId, setCurrentUserId] = useState(null)
+  const [watchlistMovieIds, setWatchlistMovieIds] = useState([])
+  const [watchedHistoryRows, setWatchedHistoryRows] = useState([])
+  const [personalListError, setPersonalListError] = useState('')
+  const [watchedModalOpen, setWatchedModalOpen] = useState(false)
+  const [watchedFormRating, setWatchedFormRating] = useState('')
+  const [watchedFormDate, setWatchedFormDate] = useState('')
+  const [watchedFormReview, setWatchedFormReview] = useState('')
+  const [watchedFormSaving, setWatchedFormSaving] = useState(false)
+  const [dashboardNowPlayingOpen, setDashboardNowPlayingOpen] = useState(false)
+  const [dashboardWatchPlannerOpen, setDashboardWatchPlannerOpen] = useState(false)
+  const [loadingProgress, setLoadingProgress] = useState(4)
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
   
   const [dbData, setDbData] = useState({ nodes: [], links: [] })
   const [isLoaded, setIsLoaded] = useState(false)
   const [graphReady, setGraphReady] = useState(false)
+  const loadingMessages = useMemo(() => getLoadingMessages(), [])
 
   const clusterColors = useMemo(() => [
     '#7dd3fc', '#fca5a5', '#86efac', '#fcd34d', '#c4b5fd', '#fdba74',
@@ -239,36 +285,10 @@ export default function HomePage() {
 
   // 1. DATA FETCHING
   useEffect(() => {
-    const fetchAllRows = async (tableName) => {
-      const pageSize = 1000
-      const allRows = []
-      let from = 0
-      while (true) {
-        const { data, error } = await supabase.from(tableName).select('*').range(from, from + pageSize - 1)
-        if (error) throw error
-        if (!data || data.length === 0) break
-        allRows.push(...data)
-        if (data.length < pageSize) break
-        from += pageSize
-      }
-      return allRows
-    }
-
     const fetchGalaxy = async () => {
       try {
-        const [nodes, links] = await Promise.all([
-          fetchAllRows('movie_galaxy'),
-          fetchAllRows('movie_links')
-        ])
-
-        setDbData({
-          nodes: nodes.map(n => ({ ...n, id: String(n.id) })),
-          links: links.map(l => ({
-            source: String(l.source_id),
-            target: String(l.target_id),
-            value: l.value || 1
-          }))
-        })
+        const galaxyData = await prefetchGalaxyData(supabase)
+        setDbData(galaxyData)
         hasCompletedInitialRenderRef.current = false
         setGraphReady(false)
         setIsLoaded(true)
@@ -495,15 +515,240 @@ export default function HomePage() {
   }, [graphData.nodes, clusterProfiles, clusterColors])
 
   const getClusterDisplayLabel = (cluster) => {
+    if (cluster === WATCHED_FILTER_VALUE) return 'Watched Movies'
     const profile = clusterProfiles.get(Number(cluster))
     if (!profile) return `Cluster ${cluster}`
     return `Cluster ${cluster} · ${profile.displayName}`
+  }
+
+  const formatWatchedDateLabel = (value) => {
+    if (!value) return 'No date'
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return value
+    return parsed.toLocaleDateString()
   }
 
   const selectedClusterInsightProfile = useMemo(() => {
     if (!clusterInsightOpen || clusterInsightCluster === null) return null
     return clusterProfiles.get(Number(clusterInsightCluster)) || null
   }, [clusterInsightCluster, clusterInsightOpen, clusterProfiles])
+
+  const watchlistIdSet = useMemo(() => new Set(watchlistMovieIds.map((movieId) => String(movieId))), [watchlistMovieIds])
+  const watchedMovieIdSet = useMemo(() => new Set(watchedHistoryRows.map((row) => String(row.movie_id))), [watchedHistoryRows])
+  const watchedRowByMovieId = useMemo(() => {
+    const map = new Map()
+    for (const row of watchedHistoryRows) {
+      map.set(String(row.movie_id), row)
+    }
+    return map
+  }, [watchedHistoryRows])
+  const watchedModeEnabled = activeCluster === WATCHED_FILTER_VALUE
+  const dashboardNowPlaying = useMemo(() => {
+    return [...graphData.nodes]
+      .filter((node) => Boolean(node.is_now_playing))
+      .sort((a, b) => Number(b.popularity || 0) - Number(a.popularity || 0))
+      .slice(0, 50)
+  }, [graphData.nodes])
+
+  const dashboardNowPlayingSimilarById = useMemo(() => {
+    const map = new Map()
+
+    for (const movie of dashboardNowPlaying) {
+      const movieId = String(movie.id)
+      const neighbors = adjacency.get(movieId) || adjacency.get(movie.id) || []
+      const uniqueNeighbors = new Map()
+
+      for (const neighbor of neighbors) {
+        const neighborNode = nodeById.get(String(neighbor.id))
+        if (!neighborNode || String(neighborNode.id) === movieId) continue
+        uniqueNeighbors.set(String(neighborNode.id), {
+          node: neighborNode,
+          weight: Number(neighbor.weight || 0)
+        })
+      }
+
+      map.set(movieId, [...uniqueNeighbors.values()].sort((a, b) => b.weight - a.weight).slice(0, 5))
+    }
+
+    return map
+  }, [adjacency, dashboardNowPlaying, nodeById])
+
+  const dashboardWatchlistMovies = useMemo(() => {
+    return watchlistMovieIds
+      .map((movieId) => nodeById.get(String(movieId)))
+      .filter(Boolean)
+      .sort((a, b) => Number(b.popularity || 0) - Number(a.popularity || 0))
+  }, [nodeById, watchlistMovieIds])
+
+  const dashboardWatchedMovies = useMemo(() => {
+    return watchedHistoryRows
+      .map((row) => ({
+        ...row,
+        movie: nodeById.get(String(row.movie_id))
+      }))
+      .filter((entry) => Boolean(entry.movie))
+      .sort((a, b) => {
+        const aTime = a.watched_at ? new Date(a.watched_at).getTime() : 0
+        const bTime = b.watched_at ? new Date(b.watched_at).getTime() : 0
+        return bTime - aTime
+      })
+  }, [nodeById, watchedHistoryRows])
+
+  const loadPersonalLists = async (userId) => {
+    if (!userId) {
+      setWatchlistMovieIds([])
+      setWatchedHistoryRows([])
+      return
+    }
+
+    const payload = await prefetchPersonalLists(supabase, userId)
+    setWatchlistMovieIds((payload.watchRows || []).map((row) => String(row.movie_id)))
+    setWatchedHistoryRows((payload.historyRows || []).map((row) => ({
+      movie_id: String(row.movie_id),
+      rating: row.rating ?? null,
+      watched_at: typeof row.watched_at === 'string' ? row.watched_at.slice(0, 10) : null,
+      review: row.review || ''
+    })))
+  }
+
+  useEffect(() => {
+    let mounted = true
+
+    const bootstrapUser = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser()
+        if (error) throw error
+        if (!mounted) return
+        const userId = data?.user?.id || null
+        setCurrentUserId(userId)
+        await loadPersonalLists(userId)
+      } catch (error) {
+        console.error('Failed to initialize personal movie lists', error)
+        if (mounted) setPersonalListError('Could not load your watchlist data.')
+      }
+    }
+
+    bootstrapUser()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const toggleWatchlistMovie = async (node) => {
+    if (!node || !currentUserId) {
+      setPersonalListError('Sign in to save movies to your watchlist.')
+      return
+    }
+
+    setPersonalListError('')
+    const movieId = String(node.id)
+
+    try {
+      if (watchlistIdSet.has(movieId)) {
+        const { error } = await supabase
+          .from('watchlist')
+          .delete()
+          .eq('user_id', currentUserId)
+          .eq('movie_id', movieId)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('watchlist')
+          .insert({ user_id: currentUserId, movie_id: movieId })
+
+        if (error) throw error
+      }
+
+      const payload = await refreshPersonalLists(supabase, currentUserId)
+      setWatchlistMovieIds((payload.watchRows || []).map((row) => String(row.movie_id)))
+      setWatchedHistoryRows((payload.historyRows || []).map((row) => ({
+        movie_id: String(row.movie_id),
+        rating: row.rating ?? null,
+        watched_at: typeof row.watched_at === 'string' ? row.watched_at.slice(0, 10) : null,
+        review: row.review || ''
+      })))
+    } catch (error) {
+      console.error('Watchlist update failed', error)
+      setPersonalListError('Could not update your watchlist right now.')
+    }
+  }
+
+  const addMovieToWatchedHistory = async (node, details = {}) => {
+    if (!node || !currentUserId) {
+      setPersonalListError('Sign in to track watched movies.')
+      return false
+    }
+
+    const movieId = String(node.id)
+    const ratingValue = Number.isInteger(details.rating) ? details.rating : null
+    const watchedAtValue = typeof details.watched_at === 'string' && details.watched_at.trim() ? details.watched_at : null
+    const reviewValue = typeof details.review === 'string' ? details.review.trim() : ''
+    setPersonalListError('')
+
+    try {
+      const { data: existingRows, error: existingError } = await supabase
+        .from('watched_history')
+        .select('movie_id')
+        .eq('user_id', currentUserId)
+        .eq('movie_id', movieId)
+        .limit(1)
+
+      if (existingError) throw existingError
+
+      if ((existingRows || []).length > 0) {
+        const { error } = await supabase
+          .from('watched_history')
+          .update({
+            rating: ratingValue,
+            watched_at: watchedAtValue,
+            review: reviewValue
+          })
+          .eq('user_id', currentUserId)
+          .eq('movie_id', movieId)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('watched_history')
+          .insert({
+            user_id: currentUserId,
+            movie_id: movieId,
+            rating: ratingValue,
+            watched_at: watchedAtValue,
+            review: reviewValue
+          })
+
+        if (error) throw error
+      }
+
+      // Prevent overlap: watched movies should not stay in the watchlist.
+      const { error: removeWatchlistError } = await supabase
+        .from('watchlist')
+        .delete()
+        .eq('user_id', currentUserId)
+        .eq('movie_id', movieId)
+
+      if (removeWatchlistError) {
+        console.warn('Unable to remove watched movie from watchlist', removeWatchlistError)
+      }
+
+      const payload = await refreshPersonalLists(supabase, currentUserId)
+      setWatchlistMovieIds((payload.watchRows || []).map((row) => String(row.movie_id)))
+      setWatchedHistoryRows((payload.historyRows || []).map((row) => ({
+        movie_id: String(row.movie_id),
+        rating: row.rating ?? null,
+        watched_at: typeof row.watched_at === 'string' ? row.watched_at.slice(0, 10) : null,
+        review: row.review || ''
+      })))
+      return true
+    } catch (error) {
+      console.error('Failed to update watched history', error)
+      setPersonalListError('Could not update watched history right now.')
+      return false
+    }
+  }
 
   const selectedClusterInsightMovies = useMemo(() => {
     if (!selectedClusterInsightProfile) return []
@@ -577,6 +822,14 @@ export default function HomePage() {
   const handleClusterLegendSelect = (cluster) => {
     if (cluster === null || cluster === undefined) {
       setActiveCluster(null)
+      setClusterMenuOpen(false)
+      setClusterInsightOpen(false)
+      setClusterInsightCluster(null)
+      return
+    }
+
+    if (cluster === WATCHED_FILTER_VALUE) {
+      setActiveCluster(WATCHED_FILTER_VALUE)
       setClusterMenuOpen(false)
       setClusterInsightOpen(false)
       setClusterInsightCluster(null)
@@ -880,12 +1133,22 @@ export default function HomePage() {
   }
 
   const createNodeObject = (node) => {
-    const isMatch = activeCluster === null || node.cluster === activeCluster
+    const isWatchedMovie = watchedMovieIdSet.has(String(node.id))
+    const isMatch = activeCluster === null
+      ? true
+      : watchedModeEnabled
+        ? isWatchedMovie
+        : node.cluster === activeCluster
     const isSelected = selectedNode?.id === node.id
     const isReleased = isNodeReleasedByHistory(node)
     const isSpotlight = historySpotlightIds.has(String(node.id))
 
     let opacity = isSelected || isMatch ? 1 : 0.15
+
+    if (watchedModeEnabled) {
+      opacity = isSelected ? 1 : isWatchedMovie ? 0.98 : 0.08
+    }
+
     if (isHistoryMode) {
       if (isSpotlight) {
         opacity = 1
@@ -896,28 +1159,40 @@ export default function HomePage() {
       }
     }
 
-    const glowMaterial = new THREE.SpriteMaterial({
-      map: glowTexture,
-      color: getClusterColor(node.cluster),
-      transparent: true,
-      opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
-    })
-
-    const glowSprite = new THREE.Sprite(glowMaterial)
-    const glowScale = isHistoryMode
-      ? (isSpotlight ? 2.25 : !isReleased ? 0.32 : isSelected ? 2.6 : isMatch ? 1.05 : 0.62)
-      : (isSelected ? 2.5 : isMatch ? 1.1 : 0.6)
-    glowSprite.scale.set(glowScale, glowScale, 1)
-
     const group = new THREE.Group()
-    group.add(glowSprite)
 
-    if (isSelected) {
-      glowSprite.material.color = new THREE.Color(getClusterColor(node.cluster)).lerp(new THREE.Color('#ffffff'), 0.28)
-      glowSprite.material.opacity = 1
-      glowSprite.scale.set(2.1, 2.1, 1)
+    if (isWatchedMovie) {
+      const blockMaterial = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(isSelected ? '#8af5cc' : WATCHED_NODE_COLOR),
+        transparent: true,
+        opacity
+      })
+      const blockMesh = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.95), blockMaterial)
+      const blockScale = isSelected ? 1.45 : isMatch ? 1.15 : 0.9
+      blockMesh.scale.set(blockScale, blockScale, blockScale)
+      group.add(blockMesh)
+    } else {
+      const glowMaterial = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: getClusterColor(node.cluster),
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+
+      const glowSprite = new THREE.Sprite(glowMaterial)
+      const glowScale = isHistoryMode
+        ? (isSpotlight ? 2.25 : !isReleased ? 0.32 : isSelected ? 2.6 : isMatch ? 1.05 : 0.62)
+        : (isSelected ? 2.5 : isMatch ? 1.1 : 0.6)
+      glowSprite.scale.set(glowScale, glowScale, 1)
+      group.add(glowSprite)
+
+      if (isSelected) {
+        glowSprite.material.color = new THREE.Color(getClusterColor(node.cluster)).lerp(new THREE.Color('#ffffff'), 0.28)
+        glowSprite.material.opacity = 1
+        glowSprite.scale.set(2.1, 2.1, 1)
+      }
     }
 
     return group
@@ -951,11 +1226,67 @@ export default function HomePage() {
   useEffect(() => {
     if (!graphRef.current) return
     graphRef.current.refresh()
-  }, [activeCluster, historyRevealedDecades, historySpotlightIds, isHistoryMode, selectedNode])
+  }, [activeCluster, historyRevealedDecades, historySpotlightIds, isHistoryMode, selectedNode, watchedMovieIdSet, watchedModeEnabled])
+
+  const openWatchedModal = (node) => {
+    if (!node) return
+    if (!currentUserId) {
+      setPersonalListError('Sign in to track watched movies.')
+      return
+    }
+    setSelectedNode(node)
+    const existing = watchedRowByMovieId.get(String(node.id))
+    setWatchedFormRating(Number.isInteger(existing?.rating) ? String(existing.rating) : '')
+    setWatchedFormDate(existing?.watched_at || '')
+    setWatchedFormReview(existing?.review || '')
+    setWatchedModalOpen(true)
+  }
+
+  const closeWatchedModal = () => {
+    setWatchedModalOpen(false)
+    setWatchedFormSaving(false)
+  }
+
+  useEffect(() => {
+    if (isLoaded && graphReady) {
+      setLoadingProgress(100)
+      return undefined
+    }
+
+    setLoadingProgress(4)
+    setLoadingMessageIndex(0)
+
+    const progressTimer = window.setInterval(() => {
+      setLoadingProgress((current) => Math.min(92, current + (current < 50 ? 3 : current < 75 ? 2 : 1)))
+    }, 160)
+
+    const messageTimer = window.setInterval(() => {
+      setLoadingMessageIndex((current) => (current + 1) % loadingMessages.length)
+    }, 1800)
+
+    return () => {
+      window.clearInterval(progressTimer)
+      window.clearInterval(messageTimer)
+    }
+  }, [graphReady, isLoaded, loadingMessages.length])
+
+  const submitWatchedModal = async () => {
+    if (!selectedNode) return
+    setWatchedFormSaving(true)
+    const ok = await addMovieToWatchedHistory(selectedNode, {
+      rating: watchedFormRating ? Number(watchedFormRating) : null,
+      watched_at: watchedFormDate,
+      review: watchedFormReview
+    })
+    setWatchedFormSaving(false)
+    if (ok) setWatchedModalOpen(false)
+  }
 
   const loadingMessage = !isLoaded
     ? 'Collecting star maps from the archive...'
     : 'Stabilizing orbits and rendering the galaxy...'
+
+  const loadingDisplayMessage = loadingMessages[loadingMessageIndex] || loadingMessage
 
   const explorerTotal = decadeExplorerSequence.length
   const explorerDisplayIndex = explorerTotal === 0 ? 0 : decadeExplorerIndex + 1
@@ -988,6 +1319,15 @@ export default function HomePage() {
                       <span>All Clusters</span>
                       <span className={styles.legendCount}>{graphData.nodes.length}</span>
                     </button>
+                    <button
+                      type="button"
+                      className={`${styles.clusterDropdownItem} ${activeCluster === WATCHED_FILTER_VALUE ? styles.activeClusterDropdownItem : ''}`}
+                      onClick={() => handleClusterLegendSelect(WATCHED_FILTER_VALUE)}
+                    >
+                      <span className={styles.colorDot} style={{ color: WATCHED_NODE_COLOR, background: WATCHED_NODE_COLOR }} />
+                      <span>Watched Movies</span>
+                      <span className={styles.legendCount}>{watchedMovieIdSet.size}</span>
+                    </button>
                     {clusterLegend.map((item) => (
                       <button
                         type="button"
@@ -1015,6 +1355,23 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
+
+              <div className={styles.dashboardOptionsRow}>
+                <button
+                  type="button"
+                  className={styles.dashboardOptionBtn}
+                  onClick={() => setDashboardNowPlayingOpen(true)}
+                >
+                  Now Playing
+                </button>
+                <button
+                  type="button"
+                  className={styles.dashboardOptionBtn}
+                  onClick={() => setDashboardWatchPlannerOpen(true)}
+                >
+                  My Watchlist
+                </button>
+              </div>
             </section>
 
             {selectedNode && !decadeExplorerOpen ? (
@@ -1026,6 +1383,9 @@ export default function HomePage() {
                     <div className={styles.clusterPill} style={{ background: getClusterColor(selectedNode.cluster) }}>
                       {clusterProfiles.get(Number(selectedNode.cluster))?.displayName || `Sector ${selectedNode.cluster}`}
                     </div>
+                    {watchedMovieIdSet.has(String(selectedNode.id)) ? (
+                      <div className={styles.watchedPill}>Watched</div>
+                    ) : null}
                   </div>
                 </header>
                 <p className={styles.overview}>{selectedNode.overview}</p>
@@ -1051,6 +1411,32 @@ export default function HomePage() {
                     ))}
                   </div>
                 </section>
+                <div className={styles.quickActionRow}>
+                  <button
+                    type="button"
+                    className={`${styles.iconActionBtn} ${watchlistIdSet.has(String(selectedNode.id)) ? styles.iconActionBtnActive : ''}`}
+                    onClick={() => toggleWatchlistMovie(selectedNode)}
+                    aria-label={watchlistIdSet.has(String(selectedNode.id)) ? 'Remove from watchlist' : 'Add to watchlist'}
+                    title={watchlistIdSet.has(String(selectedNode.id)) ? 'Remove from watchlist' : 'Add to watchlist'}
+                  >
+                    <svg viewBox="0 0 24 24" className={styles.iconActionSvg} aria-hidden="true">
+                      <path d="M7 4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5V21l-5-3-5 3V4.5z" fill="currentColor" />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`${styles.iconActionBtn} ${styles.iconActionBtnWatched}`}
+                    onClick={() => openWatchedModal(selectedNode)}
+                    aria-label={watchedMovieIdSet.has(String(selectedNode.id)) ? 'Update watched details' : 'Mark as watched'}
+                    title={watchedMovieIdSet.has(String(selectedNode.id)) ? 'Update watched details' : 'Mark as watched'}
+                  >
+                    <svg viewBox="0 0 24 24" className={styles.iconActionSvg} aria-hidden="true">
+                      <path d="M9.5 16.2L5.3 12l1.4-1.4 2.8 2.8 7.8-7.8 1.4 1.4-9.2 9.2z" fill="currentColor" />
+                    </svg>
+                  </button>
+                </div>
+                {personalListError ? <p className={styles.searchHintError}>{personalListError}</p> : null}
                 <button className={styles.closeBtn} onClick={() => setSelectedNode(null)}>Unfocus</button>
               </div>
             ) : (
@@ -1077,8 +1463,12 @@ export default function HomePage() {
             showNavInfo={false}
             enableNavigationControls={!isHistoryMode}
             enablePointerInteraction={!isHistoryMode}
-            nodeVisibility={(node) => activeCluster === null || node.cluster === activeCluster}
+            nodeVisibility={(node) => {
+              if (watchedModeEnabled) return true
+              return activeCluster === null || node.cluster === activeCluster
+            }}
             linkVisibility={(link) => {
+              if (watchedModeEnabled) return true
               if (activeCluster === null) return true
               const sourceNode = typeof link.source === 'object' ? link.source : nodeById.get(String(link.source))
               const targetNode = typeof link.target === 'object' ? link.target : nodeById.get(String(link.target))
@@ -1096,12 +1486,28 @@ export default function HomePage() {
               if (isHistoryMode && (!isLinkEndpointReleased(l.source) || !isLinkEndpointReleased(l.target))) {
                 return 0.0005
               }
+
+              if (watchedModeEnabled) {
+                const sourceId = getLinkEndpointId(l.source)
+                const targetId = getLinkEndpointId(l.target)
+                const watchedLink = watchedMovieIdSet.has(String(sourceId)) && watchedMovieIdSet.has(String(targetId))
+                return watchedLink ? 0.08 : 0.0005
+              }
+
               return (selectedNode && (getLinkEndpointId(l.source) === selectedNode.id || getLinkEndpointId(l.target) === selectedNode.id)) ? 0.25 : 0.001
             }}
             linkColor={(l) => {
               if (isHistoryMode && (!isLinkEndpointReleased(l.source) || !isLinkEndpointReleased(l.target))) {
                 return 'rgba(130, 150, 190, 0.025)'
               }
+
+              if (watchedModeEnabled) {
+                const sourceId = getLinkEndpointId(l.source)
+                const targetId = getLinkEndpointId(l.target)
+                const watchedLink = watchedMovieIdSet.has(String(sourceId)) && watchedMovieIdSet.has(String(targetId))
+                return watchedLink ? 'rgba(52, 211, 153, 0.45)' : 'rgba(80, 80, 100, 0.02)'
+              }
+
               return (selectedNode && (getLinkEndpointId(l.source) === selectedNode.id || getLinkEndpointId(l.target) === selectedNode.id))
                 ? getClusterColor(selectedNode.cluster)
                 : 'rgba(80, 80, 100, 0.05)'
@@ -1189,13 +1595,14 @@ export default function HomePage() {
 
       {(!isLoaded || !graphReady) && (
         <div className={styles.renderOverlay}>
-          <div className={styles.loaderCore}>
-            <div className={styles.loaderRingOuter} />
-            <div className={styles.loaderRingInner} />
-            <div className={styles.loaderCenter} />
+          <div className={styles.loadingCard}>
+            <div className={styles.loadingProgressShell} aria-hidden="true">
+              <div className={styles.loadingProgressBar} style={{ width: `${loadingProgress}%` }} />
+            </div>
+            <p className={styles.loadingTitle}>Movie Galaxy</p>
+            <p className={styles.loadingSubtitle}>{loadingDisplayMessage}</p>
+            <p className={styles.loadingDetail}>{Math.round(loadingProgress)}% complete</p>
           </div>
-          <p className={styles.loadingTitle}>Movie Galaxy</p>
-          <p className={styles.loadingSubtitle}>{loadingMessage}</p>
         </div>
       )}
 
@@ -1286,6 +1693,291 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+      )}
+
+      {dashboardNowPlayingOpen && (
+        <div className={styles.dashboardOverlay} onClick={() => setDashboardNowPlayingOpen(false)}>
+          <section
+            className={styles.dashboardModal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Now playing dashboard"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.dashboardModalHeader}>
+              <h4 className={styles.dashboardModalTitle}>Now Playing</h4>
+              <button type="button" className={styles.closeBtn} onClick={() => setDashboardNowPlayingOpen(false)}>Close</button>
+            </div>
+
+            {dashboardNowPlaying.length === 0 ? (
+              <p className={styles.dashboardEmpty}>No now-playing movies available.</p>
+            ) : (
+              <div className={styles.dashboardList}>
+                {dashboardNowPlaying.map((movie) => (
+                  <article key={`np-${movie.id}`} className={styles.dashboardItem}>
+                    <button
+                      type="button"
+                      className={styles.dashboardItemMain}
+                      onClick={() => {
+                        focusOnNode(movie)
+                        setDashboardNowPlayingOpen(false)
+                      }}
+                    >
+                      <div className={styles.dashboardMovieRow}>
+                        {movie.poster_path ? (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                            className={styles.dashboardPoster}
+                            alt={movie.title || 'Movie poster'}
+                          />
+                        ) : (
+                          <div className={styles.dashboardPosterFallback}>No Poster</div>
+                        )}
+                        <div className={styles.dashboardMovieMeta}>
+                          <p className={styles.dashboardItemTitle}>{movie.title}</p>
+                          <p className={styles.dashboardItemMeta}>{movie.release_date || 'Unknown date'}</p>
+                        </div>
+                      </div>
+                      <p className={styles.dashboardItemOverview}>
+                        {(movie.overview || 'No overview available.').slice(0, 220)}
+                      </p>
+                      {(dashboardNowPlayingSimilarById.get(String(movie.id)) || []).length > 0 ? (
+                        <div className={styles.dashboardSimilarWrap}>
+                          <p className={styles.dashboardSimilarLabel}>Similar Movies</p>
+                          <div className={styles.dashboardSimilarList}>
+                            {(dashboardNowPlayingSimilarById.get(String(movie.id)) || []).map(({ node: similarMovie }) => (
+                              <button
+                                key={`np-${movie.id}-sim-${similarMovie.id}`}
+                                type="button"
+                                className={styles.dashboardSimilarItem}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  focusOnNode(similarMovie)
+                                  setDashboardNowPlayingOpen(false)
+                                }}
+                              >
+                                {similarMovie.poster_path ? (
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w92${similarMovie.poster_path}`}
+                                    className={styles.dashboardSimilarPoster}
+                                    alt={similarMovie.title || 'Similar movie poster'}
+                                  />
+                                ) : (
+                                  <div className={styles.dashboardSimilarPosterFallback}>No Poster</div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </button>
+                    <div className={styles.dashboardItemActions}>
+                      <button
+                        type="button"
+                        className={styles.dashboardItemActionBtn}
+                        onClick={() => toggleWatchlistMovie(movie)}
+                      >
+                        {watchlistIdSet.has(String(movie.id)) ? 'Remove Watchlist' : 'Add Watchlist'}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {dashboardWatchPlannerOpen && (
+        <div className={styles.dashboardOverlay} onClick={() => setDashboardWatchPlannerOpen(false)}>
+          <section
+            className={styles.dashboardModal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Watch planner dashboard"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.dashboardModalHeader}>
+              <h4 className={styles.dashboardModalTitle}>My Watch Planner</h4>
+              <button type="button" className={styles.closeBtn} onClick={() => setDashboardWatchPlannerOpen(false)}>Close</button>
+            </div>
+
+            <section className={styles.dashboardSection}>
+              <div className={styles.dashboardSectionHeader}>
+                <p className={styles.dashboardSectionTitle}>Watchlist</p>
+                <span className={styles.dashboardSectionCount}>{dashboardWatchlistMovies.length}</span>
+              </div>
+              {dashboardWatchlistMovies.length === 0 ? (
+                <p className={styles.dashboardEmpty}>No movies in your watchlist yet.</p>
+              ) : (
+                <div className={styles.dashboardList}>
+                  {dashboardWatchlistMovies.map((movie) => (
+                    <article key={`wl-${movie.id}`} className={styles.dashboardItem}>
+                      <button
+                        type="button"
+                        className={styles.dashboardItemMain}
+                        onClick={() => {
+                          focusOnNode(movie)
+                          setDashboardWatchPlannerOpen(false)
+                        }}
+                      >
+                        <div className={styles.dashboardMovieRow}>
+                          {movie.poster_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                              className={styles.dashboardPoster}
+                              alt={movie.title || 'Movie poster'}
+                            />
+                          ) : (
+                            <div className={styles.dashboardPosterFallback}>No Poster</div>
+                          )}
+                          <div className={styles.dashboardMovieMeta}>
+                            <p className={styles.dashboardItemTitle}>{movie.title}</p>
+                            <p className={styles.dashboardItemMeta}>{movie.release_date || 'Unknown date'}</p>
+                          </div>
+                        </div>
+                      </button>
+                      <div className={styles.dashboardItemActions}>
+                        <button
+                          type="button"
+                          className={styles.dashboardItemActionBtn}
+                          onClick={() => toggleWatchlistMovie(movie)}
+                        >
+                          Remove
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.dashboardItemActionBtn}
+                          onClick={() => openWatchedModal(movie)}
+                        >
+                          Mark Watched
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className={styles.dashboardSection}>
+              <div className={styles.dashboardSectionHeader}>
+                <p className={styles.dashboardSectionTitle}>Watched</p>
+                <span className={styles.dashboardSectionCount}>{dashboardWatchedMovies.length}</span>
+              </div>
+              {dashboardWatchedMovies.length === 0 ? (
+                <p className={styles.dashboardEmpty}>No watched movies yet.</p>
+              ) : (
+                <div className={styles.dashboardList}>
+                  {dashboardWatchedMovies.map((entry) => (
+                    <article key={`wh-${entry.movie_id}`} className={styles.dashboardItem}>
+                      <button
+                        type="button"
+                        className={styles.dashboardItemMain}
+                        onClick={() => {
+                          focusOnNode(entry.movie)
+                          setDashboardWatchPlannerOpen(false)
+                        }}
+                      >
+                        <div className={styles.dashboardMovieRow}>
+                          {entry.movie.poster_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w92${entry.movie.poster_path}`}
+                              className={styles.dashboardPoster}
+                              alt={entry.movie.title || 'Movie poster'}
+                            />
+                          ) : (
+                            <div className={styles.dashboardPosterFallback}>No Poster</div>
+                          )}
+                          <div className={styles.dashboardMovieMeta}>
+                            <p className={styles.dashboardItemTitle}>{entry.movie.title}</p>
+                            <p className={styles.dashboardItemMeta}>
+                              {`Watched ${formatWatchedDateLabel(entry.watched_at)}${entry.rating ? ` · ${entry.rating}/5` : ''}`}
+                            </p>
+                          </div>
+                        </div>
+                        {entry.review ? <p className={styles.dashboardItemReview}>{entry.review}</p> : null}
+                      </button>
+                      <div className={styles.dashboardItemActions}>
+                        <button
+                          type="button"
+                          className={styles.dashboardItemActionBtn}
+                          onClick={() => openWatchedModal(entry.movie)}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </section>
+        </div>
+      )}
+
+      {watchedModalOpen && selectedNode && (
+        <div className={styles.watchedModalOverlay} onClick={closeWatchedModal}>
+          <section
+            className={styles.watchedModal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mark movie as watched"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.watchedModalHeader}>
+              <h4 className={styles.watchedModalTitle}>Mark As Watched</h4>
+              <button type="button" className={styles.closeBtn} onClick={closeWatchedModal}>Close</button>
+            </div>
+
+            <p className={styles.watchedModalMovie}>{selectedNode.title || 'Untitled'}</p>
+
+            <label className={styles.watchedModalLabel} htmlFor="watched-rating">Rating</label>
+            <select
+              id="watched-rating"
+              className={styles.watchedModalInput}
+              value={watchedFormRating}
+              onChange={(event) => setWatchedFormRating(event.target.value)}
+            >
+              <option value="">No rating</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+
+            <label className={styles.watchedModalLabel} htmlFor="watched-date">Watch Date</label>
+            <input
+              id="watched-date"
+              type="date"
+              className={styles.watchedModalInput}
+              value={watchedFormDate}
+              onChange={(event) => setWatchedFormDate(event.target.value)}
+            />
+
+            <label className={styles.watchedModalLabel} htmlFor="watched-review">Review</label>
+            <textarea
+              id="watched-review"
+              className={styles.watchedModalTextarea}
+              value={watchedFormReview}
+              onChange={(event) => setWatchedFormReview(event.target.value)}
+              placeholder="Write your thoughts..."
+              rows={4}
+            />
+
+            <div className={styles.watchedModalActions}>
+              <button type="button" className={styles.utilityBtn} onClick={closeWatchedModal}>Cancel</button>
+              <button
+                type="button"
+                className={`${styles.utilityBtn} ${styles.utilityBtnActive}`}
+                onClick={submitWatchedModal}
+                disabled={watchedFormSaving}
+              >
+                {watchedFormSaving ? 'Saving...' : 'Save Watched'}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       {decadeExplorerOpen && (

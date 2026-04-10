@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styles from './LandingPage.module.css'
 import { supabase } from '../lib/supabase'
 
@@ -57,7 +58,44 @@ const pickRandomItems = (items, count) => {
 }
 
 export default function LandingPage() {
+  const navigate = useNavigate()
   const [supabasePosters, setSupabasePosters] = useState([])
+  const [authMode, setAuthMode] = useState('signup')
+  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+
+    const checkSession = async () => {
+      const { data, error } = await supabase.auth.getSession()
+      if (error) {
+        console.error('Failed to check session on landing page', error)
+        return
+      }
+      if (active && data?.session) {
+        navigate('/movie-galaxy', { replace: true })
+      }
+    }
+
+    checkSession()
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        navigate('/movie-galaxy', { replace: true })
+      }
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [navigate])
 
   useEffect(() => {
     let isMounted = true
@@ -104,6 +142,79 @@ export default function LandingPage() {
     return [...supabasePosters, ...pickRandomItems(fallbackPosters, neededFallbacks)]
   }, [supabasePosters])
 
+  const handleSignUp = async (event) => {
+    event.preventDefault()
+    setAuthError('')
+
+    const cleanedUsername = username.trim()
+    const cleanedEmail = email.trim()
+
+    if (!cleanedUsername || !cleanedEmail || !password.trim()) {
+      setAuthError('Please provide username, email, and password.')
+      return
+    }
+
+    setAuthLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanedEmail,
+        password,
+        options: {
+          data: {
+            username: cleanedUsername
+          }
+        }
+      })
+
+      if (error) throw error
+
+      if (data?.session) {
+        navigate('/movie-galaxy', { replace: true })
+        return
+      }
+
+      // Email confirmation is disabled, so no session here is unexpected.
+      setAuthError('Signup succeeded but no active session was returned. Please try logging in once.')
+    } catch (error) {
+      console.error('Sign up failed', error)
+      setAuthError(error?.message || 'Unable to sign up right now. Please try again.')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  const handleLogIn = async (event) => {
+    event.preventDefault()
+    setAuthError('')
+
+    const cleanedEmail = email.trim()
+    if (!cleanedEmail || !password.trim()) {
+      setAuthError('Please provide email and password.')
+      return
+    }
+
+    setAuthLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanedEmail,
+        password
+      })
+
+      if (error) throw error
+      if (data?.session) {
+        navigate('/movie-galaxy', { replace: true })
+        return
+      }
+
+      setAuthError('Login did not return an active session. Please try again.')
+    } catch (error) {
+      console.error('Log in failed', error)
+      setAuthError(error?.message || 'Unable to log in right now. Please try again.')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.backdropGlow} />
@@ -116,6 +227,83 @@ export default function LandingPage() {
             revealing hidden thematic links, cluster neighborhoods, and story-adjacent recommendations
             so you can explore cinema as a living galaxy.
           </p>
+
+          <form className={styles.signupCard} onSubmit={authMode === 'signup' ? handleSignUp : handleLogIn}>
+            <div className={styles.authModeTabs}>
+              <button
+                type="button"
+                className={`${styles.authModeTab} ${authMode === 'signup' ? styles.authModeTabActive : ''}`}
+                onClick={() => {
+                  setAuthMode('signup')
+                  setAuthError('')
+                }}
+              >
+                Sign Up
+              </button>
+              <button
+                type="button"
+                className={`${styles.authModeTab} ${authMode === 'login' ? styles.authModeTabActive : ''}`}
+                onClick={() => {
+                  setAuthMode('login')
+                  setAuthError('')
+                }}
+              >
+                Log In
+              </button>
+            </div>
+
+            <p className={styles.signupTitle}>{authMode === 'signup' ? 'Create Your Pilot Profile' : 'Welcome Back Pilot'}</p>
+            <p className={styles.signupSubtext}>
+              {authMode === 'signup'
+                ? 'Sign up to launch straight into the 3D star field and explore clusters from Combat Plains to Noir\'s Horizon.'
+                : 'Log in to continue exploring your movie galaxy, watchlist, and watched history.'}
+            </p>
+
+            {authMode === 'signup' ? (
+              <>
+                <label className={styles.signupLabel} htmlFor="username-input">Username</label>
+                <input
+                  id="username-input"
+                  className={styles.signupInput}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="moviecaptain"
+                  autoComplete="username"
+                />
+              </>
+            ) : null}
+
+            <label className={styles.signupLabel} htmlFor="email-input">Email</label>
+            <input
+              id="email-input"
+              type="email"
+              className={styles.signupInput}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+
+            <label className={styles.signupLabel} htmlFor="password-input">Password</label>
+            <input
+              id="password-input"
+              type="password"
+              className={styles.signupInput}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Minimum 6 characters"
+              autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+              minLength={6}
+            />
+
+            {authError ? <p className={styles.signupError}>{authError}</p> : null}
+
+            <button type="submit" className={styles.signupButton} disabled={authLoading}>
+              {authLoading
+                ? authMode === 'signup' ? 'Creating Account...' : 'Logging In...'
+                : authMode === 'signup' ? 'Sign Up & Enter Galaxy' : 'Log In & Enter Galaxy'}
+            </button>
+          </form>
         </section>
 
         <section className={styles.visualCol} aria-hidden="true">

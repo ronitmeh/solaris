@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { prefetchGalaxyData } from '../lib/dataPrefetch'
 import styles from './NowPlayingPage.module.css'
 
 const getReleaseDateLabel = (releaseDate) => {
@@ -58,36 +59,18 @@ export default function NowPlayingPage() {
   useEffect(() => {
     let cancelled = false
 
-    const fetchAllRows = async (tableName) => {
-      const pageSize = 1000
-      const allRows = []
-      let from = 0
-      while (true) {
-        const { data, error } = await supabase.from(tableName).select('*').range(from, from + pageSize - 1)
-        if (error) throw error
-        if (!data || data.length === 0) break
-        allRows.push(...data)
-        if (data.length < pageSize) break
-        from += pageSize
-      }
-      return allRows
-    }
-
     const loadNowPlaying = async () => {
       try {
         setLoading(true)
-        const [nodeRows, linkRows] = await Promise.all([
-          fetchAllRows('movie_galaxy'),
-          fetchAllRows('movie_links')
-        ])
+        const galaxyData = await prefetchGalaxyData(supabase)
 
         if (cancelled) return
 
-        const normalizedNodes = nodeRows.map((node) => ({ ...node, id: String(node.id) }))
+        const normalizedNodes = galaxyData.nodes || []
         const nowPlaying = normalizedNodes.filter((node) => Boolean(node.is_now_playing))
 
         setAllNodes(normalizedNodes)
-        setLinks(linkRows)
+        setLinks(galaxyData.links || [])
         setMovies(nowPlaying)
       } catch (err) {
         if (!cancelled) {
